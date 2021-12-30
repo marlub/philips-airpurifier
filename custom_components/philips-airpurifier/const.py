@@ -132,6 +132,7 @@ DISPLAY_LIGHT_MAP = {
 }
 
 USED_INDEX_MAP = {
+    '3': 'Humidity',
     '1': 'PM2.5',
     '0': 'IAI'
 }
