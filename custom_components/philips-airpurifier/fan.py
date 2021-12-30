@@ -249,6 +249,10 @@ class PhilipsAirPurifierFan(FanEntity):
     ### Properties ###
 
     @property
+    def is_on(self):
+        return self._state is 'on'
+
+    @property
     def state(self):
         """Return device state."""
         return self._state
