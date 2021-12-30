@@ -348,8 +348,8 @@ class PhilipsAirPurifierFan(FanEntity):
         self.set_values({PHILIPS_DISPLAY_LIGHT: light})
 
     @property
-    def device_state_attributes(self):
-        """Return the state attributes of the device."""
+    def extra_state_attributes(self):
+        """Extra information to store in the state machine. It needs to be information that further explains the state, it should not be static information like firmware version."""
         attr = {}
 
         if self._model is not None:
