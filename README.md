@@ -1,6 +1,16 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
 
-## Usage:
+## Breaking changes:
+
+- Custom service `philips_airpurifier.set_mode` is replaced by `fan.set_preset_mode` service
+- `fan.set_speed` and `fan.set_percentage` no longer supported
+- Presets `Bacteria` and `Night` dropped
+- Presets `Auto Mode`, `Allergen Mode`, `Sleep Mode` renamed
+
+---
+## Setup:
+
+Add the following to your `configuration.yaml`:
 
 ```yaml
 fan:
@@ -8,7 +18,7 @@ fan:
   host: 192.168.0.17
 ```
 
-## Configuration variables:
+### Configuration variables:
 
 | Field    | Value                 | Necessity  | Description                  |
 | -------- | --------------------- | ---------- | ---------------------------- |
@@ -17,19 +27,19 @@ fan:
 | name     | Philips Air Purifier  | Optional   | Name of the Fan.             |
 
 ---
+## Fan preset modes:
+
+- Auto
+- Allergen
+- Sleep
+- Speed 1
+- Speed 2
+- Speed 3
+- Turbo
 
 ## Services
 
 The `philips_airpurifier` integration provides the following custom services:
-
-### `philips_airpurifier.set_mode`
-
-Set the device mode (if supported)
-
-| Field     | Value               | Necessity  | Description                                                             |
-| --------- | ------------------- | ---------- | ----------------------------------------------------------------------- |
-| entity_id | `"fan.living_room"` | _Required_ | Name(s) of the entities to set mode                                     |
-| mode      | `"Auto Mode"`       | _Required_ | One of "Auto Mode", "Allergen Mode", "Sleep Mode", "Bacteria", "Night". |
 
 ### `philips_airpurifier.set_function`
 

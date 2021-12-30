@@ -3,16 +3,15 @@
 import json
 import logging
 import random
+from typing import Any, Optional
 import urllib.request
 
 import voluptuous as vol
 
-import homeassistant.helpers.config_validation as cv
-
 from homeassistant.components.fan import (
     FanEntity,
     PLATFORM_SCHEMA,
-    SUPPORT_SET_SPEED
+    SUPPORT_PRESET_MODE,
 )
 
 from homeassistant.const import (
@@ -20,12 +19,14 @@ from homeassistant.const import (
     CONF_NAME,
 )
 
+import homeassistant.helpers.config_validation as cv
+
 from .crypto import (
     G,
     P,
     aes_decrypt,
     decrypt,
-    encrypt
+    encrypt,
 )
 
 from .const import *
@@ -41,10 +42,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 
 AIRPURIFIER_SERVICE_SCHEMA = vol.Schema(
     {vol.Required(SERVICE_ATTR_ENTITY_ID): cv.entity_ids}
-)
-
-SERVICE_SET_MODE_SCHEMA = AIRPURIFIER_SERVICE_SCHEMA.extend(
-    {vol.Required(SERVICE_ATTR_MODE): vol.In(MODE_MAP.values())}
 )
 
 SERVICE_SET_FUNCTION_SCHEMA = AIRPURIFIER_SERVICE_SCHEMA.extend(
@@ -84,7 +81,6 @@ SERVICE_SET_DISPLAY_LIGHT_SCHEMA = AIRPURIFIER_SERVICE_SCHEMA.extend(
 )
 
 AIR_PURIFIER_SERVICES = {
-    SERVICE_SET_MODE: SERVICE_SET_MODE_SCHEMA,
     SERVICE_SET_FUNCTION: SERVICE_SET_FUNCTION_SCHEMA,
     SERVICE_SET_TARGET_HUMIDITY: SERVICE_SET_TARGET_HUMIDITY_SCHEMA,
     SERVICE_SET_LIGHT_BRIGHTNESS: SERVICE_SET_LIGHT_BRIGHTNESS_SCHEMA,
@@ -148,6 +144,7 @@ class PhilipsAirPurifierFan(FanEntity):
         self._session_key = None
 
         self._fan_speed = None
+        self._fan_preset_mode = None
 
         self._pre_filter = None
         self._wick_filter = None
@@ -222,12 +219,14 @@ class PhilipsAirPurifierFan(FanEntity):
             self._function = FUNCTION_MAP.get(func, func)
         if PHILIPS_MODE in status:
             mode = status[PHILIPS_MODE]
-            self._fan_speed = MODE_MAP.get(mode, mode)
+            self._fan_preset_mode = MODE_MAP.get(mode, mode)
         if PHILIPS_SPEED in status:
             speed = status[PHILIPS_SPEED]
             speed = SPEED_MAP.get(speed, speed)
-            if speed != SPEED_SILENT and self._fan_speed == MODE_MANUAL:
-                self._fan_speed = speed
+            if self._fan_preset_mode == PHILIPS_MODE_MANUAL:
+                if speed != PHILIPS_SPEED_OFF:
+                    self._fan_speed = speed
+                self._fan_preset_mode = self._fan_speed
         if PHILIPS_LIGHT_BRIGHTNESS in status:
             self._light_brightness = status[PHILIPS_LIGHT_BRIGHTNESS]
         if PHILIPS_DISPLAY_LIGHT in status:
@@ -278,48 +277,49 @@ class PhilipsAirPurifierFan(FanEntity):
         return DEFAULT_ICON
 
     @property
-    def speed_list(self) -> list:
-        """Get the list of available speeds."""
-        return SUPPORTED_SPEED_LIST
+    def preset_mode(self) -> str:
+        """Return the current preset_mode. One of the values in preset_modes or None if no preset is active."""
+        return self._fan_preset_mode
 
     @property
-    def speed(self) -> str:
-        """Return the current speed."""
-        return self._fan_speed
+    def preset_modes(self) -> list:
+        """Get the list of available preset_modes. This is an arbitrary list of str and should not contain any speeds."""
+        return SUPPORTED_PRESET_LIST
 
     @property
     def supported_features(self) -> int:
         """Flag supported features."""
-        return SUPPORT_SET_SPEED
+        return SUPPORT_PRESET_MODE
 
-    def turn_on(self, speed: str = None, **kwargs) -> None:
+    def turn_on(self, speed: Optional[str] = None, percentage: Optional[int] = None, preset_mode: Optional[str] = None, **kwargs: Any) -> None:
         """Turn on the fan."""
-        if speed is None:
+        if preset_mode is not None:
+            self.set_preset_mode(preset_mode, True)
+        else:
             values = {PHILIPS_POWER: '1'}
             self.set_values(values)
-        else:
-            self.set_speed(speed)
 
     def turn_off(self, **kwargs) -> None:
         """Turn off the fan."""
         values = {PHILIPS_POWER: '0'}
         self.set_values(values)
 
-    def set_speed(self, speed: str):
-        """Set the speed of the fan."""
-        if speed in SPEED_MAP.values():
-            philips_speed = self._find_key(SPEED_MAP, speed)
-            self.set_values({PHILIPS_SPEED: philips_speed})
-        elif speed in MODE_MAP.values():
-            philips_mode = self._find_key(MODE_MAP, speed)
-            self.set_values({PHILIPS_MODE: philips_mode})
+    def set_preset_mode(self, preset_mode: str, turn_on: bool = False) -> None:
+        """Set the preset mode of the fan."""
+        values = {}
+        if turn_on:
+            values.update({PHILIPS_POWER: '1'})
+        if preset_mode in SPEED_MAP.values():
+            self._fan_speed = preset_mode
+            philips_speed = self._find_key(SPEED_MAP, preset_mode)
+            values.update({PHILIPS_MODE: PHILIPS_MODE_MANUAL, PHILIPS_SPEED: philips_speed})
+        elif preset_mode in MODE_MAP.values():
+            philips_mode = self._find_key(MODE_MAP, preset_mode)
+            values.update({PHILIPS_MODE: philips_mode})
         else:
-            _LOGGER.warning("Unsupported speed %s", speed)
-
-    def set_mode(self, mode: str):
-        """Set the mode of the fan."""
-        philips_mode = self._find_key(MODE_MAP, mode)
-        self.set_values({PHILIPS_MODE: philips_mode})
+            _LOGGER.warning("Unsupported preset %s", preset_mode)
+            return
+        self.set_values(values)
 
     def set_function(self, function: str):
         """Set the function of the fan."""
