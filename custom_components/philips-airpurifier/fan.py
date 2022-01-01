@@ -201,49 +201,51 @@ class PhilipsAirPurifierFan(FanEntity):
 
     def _update_state(self):
         url = 'http://{}/di/v1/products/1/air'.format(self._host)
-        status = self._get(url)
-        if PHILIPS_POWER in status:
-            self._state = 'on' if status[PHILIPS_POWER] == '1' else 'off'
-        if PHILIPS_PM25 in status:
-            self._pm25 = status[PHILIPS_PM25]
-        if PHILIPS_HUMIDITY in status:
-            self._humidity = status[PHILIPS_HUMIDITY]
-        if PHILIPS_TARGET_HUMIDITY in status:
-            self._target_humidity = status[PHILIPS_TARGET_HUMIDITY]
-        if PHILIPS_ALLERGEN_INDEX in status:
-            self._allergen_index = status[PHILIPS_ALLERGEN_INDEX]
-        if PHILIPS_TEMPERATURE in status:
-            self._temperature = status[PHILIPS_TEMPERATURE]
-        if PHILIPS_FUNCTION in status:
-            func = status[PHILIPS_FUNCTION]
+        self._assign_philips_states(self._get(url))
+    
+    def _assign_philips_states(self, data: dict) -> None:
+        if PHILIPS_POWER in data:
+            self._state = 'on' if data[PHILIPS_POWER] == '1' else 'off'
+        if PHILIPS_PM25 in data:
+            self._pm25 = data[PHILIPS_PM25]
+        if PHILIPS_HUMIDITY in data:
+            self._humidity = data[PHILIPS_HUMIDITY]
+        if PHILIPS_TARGET_HUMIDITY in data:
+            self._target_humidity = data[PHILIPS_TARGET_HUMIDITY]
+        if PHILIPS_ALLERGEN_INDEX in data:
+            self._allergen_index = data[PHILIPS_ALLERGEN_INDEX]
+        if PHILIPS_TEMPERATURE in data:
+            self._temperature = data[PHILIPS_TEMPERATURE]
+        if PHILIPS_FUNCTION in data:
+            func = data[PHILIPS_FUNCTION]
             self._function = FUNCTION_MAP.get(func, func)
-        if PHILIPS_MODE in status:
-            mode = status[PHILIPS_MODE]
+        if PHILIPS_MODE in data:
+            mode = data[PHILIPS_MODE]
             self._fan_preset_mode = MODE_MAP.get(mode, mode)
-        if PHILIPS_SPEED in status:
-            speed = status[PHILIPS_SPEED]
+        if PHILIPS_SPEED in data:
+            speed = data[PHILIPS_SPEED]
             speed = SPEED_MAP.get(speed, speed)
             if self._fan_preset_mode == PHILIPS_MODE_MANUAL:
                 if speed != PHILIPS_SPEED_OFF:
                     self._fan_speed = speed
                 self._fan_preset_mode = self._fan_speed
-        if PHILIPS_LIGHT_BRIGHTNESS in status:
-            self._light_brightness = status[PHILIPS_LIGHT_BRIGHTNESS]
-        if PHILIPS_DISPLAY_LIGHT in status:
-            display_light = status[PHILIPS_DISPLAY_LIGHT]
+        if PHILIPS_LIGHT_BRIGHTNESS in data:
+            self._light_brightness = data[PHILIPS_LIGHT_BRIGHTNESS]
+        if PHILIPS_DISPLAY_LIGHT in data:
+            display_light = data[PHILIPS_DISPLAY_LIGHT]
             self._display_light = DISPLAY_LIGHT_MAP.get(
                 display_light, display_light)
-        if PHILIPS_USED_INDEX in status:
-            ddp = status[PHILIPS_USED_INDEX]
+        if PHILIPS_USED_INDEX in data:
+            ddp = data[PHILIPS_USED_INDEX]
             self._used_index = USED_INDEX_MAP.get(ddp, ddp)
-        if PHILIPS_WATER_LEVEL in status:
-            self._water_level = status[PHILIPS_WATER_LEVEL]
-        if PHILIPS_CHILD_LOCK in status:
-            self._child_lock = status[PHILIPS_CHILD_LOCK]
-        if PHILIPS_TIMER in status:
-            self._timer = status[PHILIPS_TIMER]
-        if PHILIPS_TIMER_REMAINING in status:
-            self._timer_remaining = status[PHILIPS_TIMER_REMAINING]
+        if PHILIPS_WATER_LEVEL in data:
+            self._water_level = data[PHILIPS_WATER_LEVEL]
+        if PHILIPS_CHILD_LOCK in data:
+            self._child_lock = data[PHILIPS_CHILD_LOCK]
+        if PHILIPS_TIMER in data:
+            self._timer = data[PHILIPS_TIMER]
+        if PHILIPS_TIMER_REMAINING in data:
+            self._timer_remaining = data[PHILIPS_TIMER_REMAINING]
 
     ### Properties ###
 
@@ -309,7 +311,9 @@ class PhilipsAirPurifierFan(FanEntity):
         values = {}
         if turn_on:
             values.update({PHILIPS_POWER: '1'})
-        if preset_mode in SPEED_MAP.values():
+        if preset_mode == self._fan_preset_mode:
+            """Nothing to change"""
+        elif preset_mode in SPEED_MAP.values():
             self._fan_speed = preset_mode
             philips_speed = self._find_key(SPEED_MAP, preset_mode)
             values.update({PHILIPS_MODE: PHILIPS_MODE_MANUAL, PHILIPS_SPEED: philips_speed})
@@ -318,20 +322,30 @@ class PhilipsAirPurifierFan(FanEntity):
             values.update({PHILIPS_MODE: philips_mode})
         else:
             _LOGGER.warning("Unsupported preset %s", preset_mode)
-            return
-        self.set_values(values)
+
+        if values:
+            self.set_values(values)
 
     def set_function(self, function: str):
         """Set the function of the fan."""
+        if function == self._function:
+            return
+
         philips_function = self._find_key(FUNCTION_MAP, function)
         self.set_values({PHILIPS_FUNCTION: philips_function})
 
     def set_target_humidity(self, humidity: int):
         """Set the target humidity of the fan."""
+        if humidity == self._target_humidity:
+            return
+
         self.set_values({PHILIPS_TARGET_HUMIDITY: humidity})
 
     def set_light_brightness(self, level: int):
         """Set the light brightness of the fan."""
+        if level == self._light_brightness:
+            return
+
         values = {}
         values[PHILIPS_LIGHT_BRIGHTNESS] = level
         values[PHILIPS_DISPLAY_LIGHT] = self._find_key(
@@ -340,14 +354,21 @@ class PhilipsAirPurifierFan(FanEntity):
 
     def set_child_lock(self, lock: bool):
         """Set the child lock of the fan."""
+        if lock == self._child_lock:
+            return
+
         self.set_values({PHILIPS_CHILD_LOCK: lock})
 
     def set_timer(self, hours: int):
         """Set the off timer of the fan."""
+
         self.set_values({PHILIPS_TIMER: hours})
 
     def set_display_light(self, light: bool):
         """Set the display light of the fan."""
+        if light == self._display_light:
+            return
+
         light = self._find_key(DISPLAY_LIGHT_MAP, light)
         self.set_values({PHILIPS_DISPLAY_LIGHT: light})
 
@@ -403,7 +424,10 @@ class PhilipsAirPurifierFan(FanEntity):
         url = 'http://{}/di/v1/products/1/air'.format(self._host)
         req = urllib.request.Request(url=url, data=body, method='PUT')
         with urllib.request.urlopen(req) as response:
-            response.read()
+            resp = response.read()
+            resp = decrypt(resp.decode('ascii'), self._session_key)
+            self._assign_philips_states(json.loads(resp))
+            self.schedule_update_ha_state()
 
     def _get_key(self):
         # pylint: disable=invalid-name
