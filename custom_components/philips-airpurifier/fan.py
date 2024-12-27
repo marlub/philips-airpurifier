@@ -10,8 +10,8 @@ import voluptuous as vol
 
 from homeassistant.components.fan import (
     FanEntity,
+    FanEntityFeature,
     PLATFORM_SCHEMA,
-    SUPPORT_PRESET_MODE,
 )
 
 from homeassistant.const import (
@@ -31,7 +31,7 @@ from .crypto import (
 
 from .const import *
 
-__version__ = '0.3.5'
+__version__ = '2.1.1'
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -251,7 +251,7 @@ class PhilipsAirPurifierFan(FanEntity):
 
     @property
     def is_on(self):
-        return self._state is 'on'
+        return self._state == 'on'
 
     @property
     def state(self):
@@ -291,7 +291,7 @@ class PhilipsAirPurifierFan(FanEntity):
     @property
     def supported_features(self) -> int:
         """Flag supported features."""
-        return SUPPORT_PRESET_MODE
+        return FanEntityFeature.PRESET_MODE | FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
 
     def turn_on(self, speed: Optional[str] = None, percentage: Optional[int] = None, preset_mode: Optional[str] = None, **kwargs: Any) -> None:
         """Turn on the fan."""
